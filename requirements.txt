@@ -1,5 +1,5 @@
 langchain
 langchain-community
 streamlit
-flas
+flask
 faiss-cpu
