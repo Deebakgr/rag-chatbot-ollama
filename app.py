@@ -1,7 +1,10 @@
 import streamlit as st
+import os
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
+from langchain_community.document_loaders import TextLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 st.set_page_config(page_title="RAG Chatbot", layout="centered")
 st.title("🤖 RAG Chatbot with Ollama Gemma")
@@ -9,7 +12,21 @@ st.title("🤖 RAG Chatbot with Ollama Gemma")
 @st.cache_resource
 def load_rag_system():
     embeddings = OllamaEmbeddings(model="nomic-embed-text")
-    vectorstore = FAISS.load_local("vectorstore", embeddings, allow_dangerous_deserialization=True)
+    
+    # Check if vectorstore exists, if not create it
+    if not os.path.exists("vectorstore"):
+        st.info("Creating vector database for the first time...")
+        loader = TextLoader('./dataset.txt', encoding='utf-8')
+        docs = loader.load()
+        
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        splits = text_splitter.split_documents(docs)
+        
+        vectorstore = FAISS.from_documents(splits, embeddings)
+        vectorstore.save_local("vectorstore")
+    else:
+        vectorstore = FAISS.load_local("vectorstore", embeddings, allow_dangerous_deserialization=True)
+    
     llm = Ollama(model="gemma3:latest", temperature=0)
     return vectorstore, llm
 
@@ -18,7 +35,7 @@ try:
     st.success("✅ System ready!")
 except Exception as e:
     st.error(f"❌ Error: {e}")
-    st.info("Run 'python setup_vectorstore.py' first to create the vector database.")
+    st.info("Make sure Ollama is running with gemma3:latest and nomic-embed-text models.")
     st.stop()
 
 if "messages" not in st.session_state:
